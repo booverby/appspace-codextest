@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/server"
 import { decrypt } from "@/lib/crypto"
+import { tenantAuth } from "@/lib/tenant-auth"
 
 const languageNames: Record<string, string> = {
   en: "English",
@@ -17,35 +18,32 @@ const languageNames: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
-    const { text, sourceLang, targetLang, tenantId, userId } = await request.json()
+    const { text, sourceLang, targetLang } = await request.json()
 
-    if (!text || !sourceLang || !targetLang || !tenantId || !userId) {
+    if (!text || !sourceLang || !targetLang) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
+
+    const auth = await tenantAuth("Translate")
+    if (!auth.success) {
+      return NextResponse.json(
+        { error: auth.error.message, code: auth.error.code },
+        { status: auth.error.status },
+      )
+    }
+
+    const { tenant, user, app } = auth.data
 
     if (!process.env.ENCRYPTION_KEY) {
       console.error("ENCRYPTION_KEY environment variable not set")
       return NextResponse.json({ error: "Server configuration error: encryption key not set" }, { status: 500 })
     }
 
-    // Check if user has access to this app
-    const { data: orgApp, error: orgAppError } = await supabaseAdmin
-      .from("org_apps")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("app_id", "550e8400-e29b-41d4-a716-446655440002") // Translate app ID
-      .eq("enabled", true)
-      .single()
-
-    if (orgAppError || !orgApp) {
-      return NextResponse.json({ error: "App not enabled for your organization" }, { status: 403 })
-    }
-
     // Get organization's OpenAI API key
     const { data: apiKey, error: apiKeyError } = await supabaseAdmin
       .from("api_keys")
       .select("encrypted_key")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", tenant.id)
       .eq("provider", "openai")
       .single()
 
@@ -98,9 +96,9 @@ ${text}`
       // Log usage
       try {
         await supabaseAdmin.from("usage_logs").insert({
-          user_id: userId,
-          tenant_id: tenantId,
-          app_id: "550e8400-e29b-41d4-a716-446655440002",
+          user_id: user.id,
+          tenant_id: tenant.id,
+          app_id: app?.id || "",
           action: "translation",
           metadata: {
             app_name: "Translate",

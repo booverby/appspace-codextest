@@ -1,19 +1,30 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/server"
+import { tenantAuth } from "@/lib/tenant-auth"
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get("tenantId")
+    const tenantIdParam = searchParams.get("tenantId")
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    const auth = await tenantAuth()
+    if (!auth.success) {
+      return NextResponse.json(
+        { error: auth.error.message, code: auth.error.code },
+        { status: auth.error.status },
+      )
+    }
+
+    const { tenant } = auth.data
+
+    if (tenantIdParam && tenantIdParam !== tenant.id) {
+      return NextResponse.json({ error: "Tenant mismatch" }, { status: 403 })
     }
 
     const { data: apiKeys, error: apiKeyError } = await supabaseAdmin
       .from("api_keys")
       .select("id")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", tenant.id)
       .limit(1)
 
     if (apiKeyError) throw apiKeyError
@@ -25,7 +36,7 @@ export async function GET(request: Request) {
       .select(`
         app:apps(*)
       `)
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", tenant.id)
       .eq("enabled", true)
 
     if (error) throw error

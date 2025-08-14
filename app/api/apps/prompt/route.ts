@@ -1,53 +1,42 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/server"
 import { decrypt } from "@/lib/crypto"
+import { tenantAuth } from "@/lib/tenant-auth"
 
 export async function POST(request: Request) {
   try {
-    const { message, tenantId, userId } = await request.json()
+    const { message } = await request.json()
 
-    console.log("Prompt API called with:", { message: message?.substring(0, 50), tenantId, userId })
+    console.log("Prompt API called with:", { message: message?.substring(0, 50) })
 
-    if (!message || !tenantId || !userId) {
-      console.log("Missing required fields:", { message: !!message, tenantId: !!tenantId, userId: !!userId })
+    if (!message) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
+
+    const auth = await tenantAuth("Prompt")
+    if (!auth.success) {
+      return NextResponse.json(
+        { error: auth.error.message, code: auth.error.code },
+        { status: auth.error.status },
+      )
+    }
+
+    const { tenant, user, app } = auth.data
 
     if (!process.env.ENCRYPTION_KEY) {
       console.error("ENCRYPTION_KEY environment variable not set")
       return NextResponse.json({ error: "Server configuration error: encryption key not set" }, { status: 500 })
     }
 
-    // Check if user has access to this app
-    const { data: orgApp, error: orgAppError } = await supabaseAdmin
-      .from("org_apps")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("app_id", "550e8400-e29b-41d4-a716-446655440001") // Prompt app ID
-      .eq("enabled", true)
-      .single()
-
-    console.log("Org app check:", { orgApp, orgAppError, tenantId })
-
-    if (orgAppError) {
-      console.error("Database error checking org_apps:", orgAppError)
-      return NextResponse.json({ error: `Database error: ${orgAppError.message}` }, { status: 500 })
-    }
-
-    if (!orgApp) {
-      console.log("App not enabled for organization:", tenantId)
-      return NextResponse.json({ error: "App not enabled for your organization" }, { status: 403 })
-    }
-
     // Get organization's OpenAI API key
     const { data: apiKey, error: apiKeyError } = await supabaseAdmin
       .from("api_keys")
       .select("encrypted_key")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", tenant.id)
       .eq("provider", "openai")
       .single()
 
-    console.log("API key check:", { hasApiKey: !!apiKey, apiKeyError, tenantId })
+    console.log("API key check:", { hasApiKey: !!apiKey, apiKeyError, tenantId: tenant.id })
 
     if (apiKeyError) {
       console.error("Database error fetching API key:", apiKeyError)
@@ -55,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     if (!apiKey) {
-      console.log("No OpenAI API key found for tenant:", tenantId)
+      console.log("No OpenAI API key found for tenant:", tenant.id)
       return NextResponse.json({ error: "No OpenAI API key configured for your organization" }, { status: 400 })
     }
 
@@ -108,9 +97,9 @@ export async function POST(request: Request) {
       // Log usage
       try {
         await supabaseAdmin.from("usage_logs").insert({
-          user_id: userId,
-          tenant_id: tenantId,
-          app_id: "550e8400-e29b-41d4-a716-446655440001",
+          user_id: user.id,
+          tenant_id: tenant.id,
+          app_id: app?.id || "",
           action: "prompt_completion",
           metadata: {
             app_name: "Prompt",
