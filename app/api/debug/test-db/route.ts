@@ -83,7 +83,7 @@ export async function GET() {
         provider,
         created_at,
         updated_at,
-        tenant:tenants(name)
+        organization:organizations(name)
       `)
       .order("created_at", { ascending: false })
 

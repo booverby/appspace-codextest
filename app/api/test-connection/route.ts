@@ -37,7 +37,7 @@ export async function GET() {
     console.log("Supabase client created successfully")
 
     // Test simple query
-    const { data, error } = await supabase.from("tenants").select("id, name").limit(1)
+    const { data, error } = await supabase.from("organizations").select("id, name").limit(1)
 
     console.log("Query result:", { data, error })
 

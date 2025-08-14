@@ -20,20 +20,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Plus, Key, Trash2, Eye, EyeOff, TestTube, CheckCircle, XCircle, AlertCircle } from "lucide-react"
-import type { Tenant } from "@/lib/types"
+import type { Organization } from "@/lib/types"
 
 interface ApiKey {
   id: string
-  tenant_id: string
+  organization_id: string
   provider: string
   has_key: boolean
   created_at: string
-  tenant?: { name: string }
+  organization?: { name: string }
 }
 
 export function ApiKeyManagement() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [showKey, setShowKey] = useState(false)
@@ -44,7 +44,7 @@ export function ApiKeyManagement() {
   >({})
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set())
   const [formData, setFormData] = useState({
-    tenant_id: "",
+    organization_id: "",
     provider: "openai",
     api_key: "",
   })
@@ -55,7 +55,10 @@ export function ApiKeyManagement() {
 
   const fetchData = async () => {
     try {
-      const [keysRes, tenantsRes] = await Promise.all([fetch("/api/admin/api-keys"), fetch("/api/admin/tenants")])
+      const [keysRes, organizationsRes] = await Promise.all([
+        fetch("/api/admin/api-keys"),
+        fetch("/api/admin/organizations"),
+      ])
 
       if (!keysRes.ok) {
         const errorText = await keysRes.text()
@@ -63,29 +66,29 @@ export function ApiKeyManagement() {
         throw new Error(`Failed to fetch API keys: ${keysRes.status}`)
       }
 
-      if (!tenantsRes.ok) {
-        const errorText = await tenantsRes.text()
-        console.error("Tenants fetch failed:", tenantsRes.status, errorText)
-        throw new Error(`Failed to fetch tenants: ${tenantsRes.status}`)
+      if (!organizationsRes.ok) {
+        const errorText = await organizationsRes.text()
+        console.error("Organizations fetch failed:", organizationsRes.status, errorText)
+        throw new Error(`Failed to fetch organizations: ${organizationsRes.status}`)
       }
 
-      const [keysData, tenantsData] = await Promise.all([
+      const [keysData, organizationsData] = await Promise.all([
         keysRes.json().catch((err) => {
           console.error("Failed to parse keys JSON:", err)
           return []
         }),
-        tenantsRes.json().catch((err) => {
-          console.error("Failed to parse tenants JSON:", err)
+        organizationsRes.json().catch((err) => {
+          console.error("Failed to parse organizations JSON:", err)
           return []
         }),
       ])
 
       setApiKeys(keysData)
-      setTenants(tenantsData)
+      setOrganizations(organizationsData)
     } catch (error) {
       console.error("Failed to fetch data:", error)
       setApiKeys([])
-      setTenants([])
+      setOrganizations([])
     } finally {
       setLoading(false)
     }
@@ -105,7 +108,7 @@ export function ApiKeyManagement() {
       if (!response.ok) throw new Error("Failed to save API key")
 
       setDialogOpen(false)
-      setFormData({ tenant_id: "", provider: "openai", api_key: "" })
+      setFormData({ organization_id: "", provider: "openai", api_key: "" })
       fetchData()
     } catch (error) {
       console.error("Failed to save API key:", error)
@@ -131,7 +134,7 @@ export function ApiKeyManagement() {
   }
 
   // Enhanced testApiKey function with detailed error logging and auto-expand
-  const testApiKey = async (keyId: string, tenantId: string, provider: string) => {
+  const testApiKey = async (keyId: string, organizationId: string, provider: string) => {
     setTestingKeys((prev) => new Set(prev).add(keyId))
     setTestResults((prev) => {
       const newResults = { ...prev }
@@ -143,7 +146,7 @@ export function ApiKeyManagement() {
       const response = await fetch("/api/admin/test-api-key", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenantId, provider }),
+        body: JSON.stringify({ organization_id: organizationId, provider }),
       })
 
       const result = await response.json()
@@ -226,18 +229,18 @@ export function ApiKeyManagement() {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="tenant">Organization</Label>
+                <Label htmlFor="organization">Organization</Label>
                 <Select
-                  value={formData.tenant_id}
-                  onValueChange={(value) => setFormData({ ...formData, tenant_id: value })}
+                  value={formData.organization_id}
+                  onValueChange={(value) => setFormData({ ...formData, organization_id: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select organization" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tenants.map((tenant) => (
-                      <SelectItem key={tenant.id} value={tenant.id}>
-                        {tenant.name}
+                    {organizations.map((organization) => (
+                      <SelectItem key={organization.id} value={organization.id}>
+                        {organization.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -311,7 +314,7 @@ export function ApiKeyManagement() {
                   <div className="flex items-center gap-3">
                     <Key className="h-5 w-5 text-gray-400" />
                     <div>
-                      <h3 className="font-medium">{key.tenant?.name || "Unknown Org"}</h3>
+                      <h3 className="font-medium">{key.organization?.name || "Unknown Org"}</h3>
                       <p className="text-sm text-gray-500">
                         Provider: <Badge variant="outline">{key.provider}</Badge>
                       </p>
@@ -342,7 +345,7 @@ export function ApiKeyManagement() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => testApiKey(key.id, key.tenant_id, key.provider)}
+                        onClick={() => testApiKey(key.id, key.organization_id, key.provider)}
                         disabled={testingKeys.has(key.id)}
                       >
                         <TestTube className="h-4 w-4" />

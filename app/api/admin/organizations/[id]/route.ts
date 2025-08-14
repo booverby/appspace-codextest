@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // Get organization with members
     const { data: organization, error } = await supabaseAdmin
-      .from("tenants")
+      .from("organizations")
       .select(`
         *,
         members:test_users(*)
@@ -34,7 +34,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     const { data: organization, error } = await supabaseAdmin
-      .from("tenants")
+      .from("organizations")
       .update({ name })
       .eq("id", id)
       .select()
@@ -57,7 +57,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const { data: members, error: membersError } = await supabaseAdmin
       .from("test_users")
       .select("id")
-      .eq("tenant_id", id)
+      .eq("organization_id", id)
 
     if (membersError) throw membersError
 
@@ -69,7 +69,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     // Delete organization
-    const { error } = await supabaseAdmin.from("tenants").delete().eq("id", id)
+    const { error } = await supabaseAdmin.from("organizations").delete().eq("id", id)
 
     if (error) throw error
 

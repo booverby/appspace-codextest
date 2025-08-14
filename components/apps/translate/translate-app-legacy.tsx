@@ -45,7 +45,7 @@ export function TranslateApp({ user }: TranslateAppProps) {
           text: sourceText.trim(),
           sourceLang,
           targetLang,
-          tenantId: user.tenant_id,
+          organizationId: user.organization_id,
           userId: user.id,
         }),
       })

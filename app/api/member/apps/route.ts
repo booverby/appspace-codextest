@@ -4,16 +4,16 @@ import { supabaseAdmin } from "@/lib/supabase/server"
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get("tenantId")
+    const organizationId = searchParams.get("organizationId")
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    if (!organizationId) {
+      return NextResponse.json({ error: "Organization ID is required" }, { status: 400 })
     }
 
     const { data: apiKeys, error: apiKeyError } = await supabaseAdmin
       .from("api_keys")
       .select("id")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .limit(1)
 
     if (apiKeyError) throw apiKeyError
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       .select(`
         app:apps(*)
       `)
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .eq("enabled", true)
 
     if (error) throw error

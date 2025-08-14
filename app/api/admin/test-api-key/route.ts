@@ -6,12 +6,12 @@ import { decrypt } from "@/lib/crypto"
 export async function POST(request: NextRequest) {
   try {
     console.log("=== API Key Test Started ===")
-    const { tenant_id, provider } = await request.json()
-    console.log("Request data:", { tenant_id, provider })
+    const { organization_id, provider } = await request.json()
+    console.log("Request data:", { organization_id, provider })
 
-    if (!tenant_id || !provider) {
+    if (!organization_id || !provider) {
       console.log("❌ Missing required fields")
-      return NextResponse.json({ success: false, message: "Missing tenant_id or provider" }, { status: 400 })
+      return NextResponse.json({ success: false, message: "Missing organization_id or provider" }, { status: 400 })
     }
 
     // Check if ENCRYPTION_KEY is available
@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
     console.log("🔍 Connecting to database...")
     const supabase = createServerComponentClient({ cookies })
 
-    // Get the API key for this tenant and provider
-    console.log(`🔍 Looking for API key: tenant_id=${tenant_id}, provider=${provider}`)
+    // Get the API key for this organization and provider
+    console.log(`🔍 Looking for API key: organization_id=${organization_id}, provider=${provider}`)
     const { data: apiKeyData, error: keyError } = await supabase
       .from("api_keys")
       .select("encrypted_key, created_at")
-      .eq("tenant_id", tenant_id)
+      .eq("organization_id", organization_id)
       .eq("provider", provider)
       .single()
 

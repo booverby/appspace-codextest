@@ -5,10 +5,10 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   try {
     const { userId } = params
 
-    // Remove user from organization by setting tenant_id to null
+    // Remove user from organization by setting organization_id to null
     const { data: updatedUser, error } = await supabaseAdmin
       .from("test_users")
-      .update({ tenant_id: null })
+      .update({ organization_id: null })
       .eq("id", userId)
       .select()
       .single()

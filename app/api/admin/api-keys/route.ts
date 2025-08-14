@@ -19,7 +19,10 @@ export async function GET() {
 
     console.log("Supabase admin client is available, attempting query...")
 
-    const { data: testData, error: testError } = await supabaseAdmin.from("tenants").select("id").limit(1)
+    const { data: testData, error: testError } = await supabaseAdmin
+      .from("organizations")
+      .select("id")
+      .limit(1)
 
     if (testError) {
       console.error("Basic connection test failed:", testError)
@@ -38,7 +41,7 @@ export async function GET() {
       .from("api_keys")
       .select(`
         *,
-        tenant:tenants(name)
+        organization:organizations(name)
       `)
       .order("created_at", { ascending: false })
 
@@ -83,9 +86,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const { tenant_id, provider, api_key } = await request.json()
+    const { organization_id, provider, api_key } = await request.json()
 
-    if (!tenant_id || !provider || !api_key) {
+    if (!organization_id || !provider || !api_key) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
@@ -94,7 +97,7 @@ export async function POST(request: Request) {
 
     const { data: savedKey, error } = await supabaseAdmin
       .from("api_keys")
-      .upsert({ tenant_id, provider, encrypted_key: encryptedKey }, { onConflict: "tenant_id,provider" })
+      .upsert({ organization_id, provider, encrypted_key: encryptedKey }, { onConflict: "organization_id,provider" })
       .select()
       .single()
 

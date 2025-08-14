@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const { data: enabledApps, error: enabledError } = await supabaseAdmin
       .from("org_apps")
       .select("app_id")
-      .eq("tenant_id", organizationId)
+      .eq("organization_id", organizationId)
 
     if (enabledError) {
       console.error("Error fetching enabled apps:", enabledError)
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (enabled) {
       // Enable app for organization
       const { error } = await supabaseAdmin.from("org_apps").insert({
-        tenant_id: organizationId,
+        organization_id: organizationId,
         app_id: appId,
         enabled: true,
       })
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       const { error } = await supabaseAdmin
         .from("org_apps")
         .delete()
-        .eq("tenant_id", organizationId)
+        .eq("organization_id", organizationId)
         .eq("app_id", appId)
 
       if (error) {

@@ -18,12 +18,12 @@ interface TestResult {
 
 export default function AdminTestPage() {
   const [apiKeyTest, setApiKeyTest] = useState<{
-    tenantId: string
+    organizationId: string
     provider: string
     loading: boolean
     result: TestResult | null
   }>({
-    tenantId: "",
+    organizationId: "",
     provider: "openai",
     loading: false,
     result: null,
@@ -52,10 +52,10 @@ export default function AdminTestPage() {
   })
 
   const testApiKey = async () => {
-    if (!apiKeyTest.tenantId || !apiKeyTest.provider) {
+    if (!apiKeyTest.organizationId || !apiKeyTest.provider) {
       setApiKeyTest((prev) => ({
         ...prev,
-        result: { success: false, message: "Please provide tenant ID and provider" },
+        result: { success: false, message: "Please provide organization ID and provider" },
       }))
       return
     }
@@ -67,7 +67,7 @@ export default function AdminTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenant_id: apiKeyTest.tenantId,
+          organization_id: apiKeyTest.organizationId,
           provider: apiKeyTest.provider,
         }),
       })
@@ -196,12 +196,12 @@ export default function AdminTestPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="tenant-id">Tenant ID</Label>
+              <Label htmlFor="organization-id">Organization ID</Label>
               <Input
-                id="tenant-id"
-                placeholder="Enter tenant/organization ID"
-                value={apiKeyTest.tenantId}
-                onChange={(e) => setApiKeyTest((prev) => ({ ...prev, tenantId: e.target.value }))}
+                id="organization-id"
+                placeholder="Enter organization ID"
+                value={apiKeyTest.organizationId}
+                onChange={(e) => setApiKeyTest((prev) => ({ ...prev, organizationId: e.target.value }))}
               />
             </div>
             <div>

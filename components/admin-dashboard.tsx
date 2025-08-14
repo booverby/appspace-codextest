@@ -10,11 +10,11 @@ import { UserManagementDialog } from "@/components/user-management-dialog"
 import { ApiKeyManagement } from "@/components/api-key-management"
 import { UsageAnalytics } from "@/components/usage-analytics"
 import { OrganizationManagement } from "@/components/organization-management"
-import type { Tenant, TestUser, App, UsageLog } from "@/lib/types"
+import type { Organization, TestUser, App, UsageLog } from "@/lib/types"
 import Link from "next/link"
 
 export function AdminDashboard() {
-  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [organizations, setOrganizations] = useState<Organization[]>([])
   const [users, setUsers] = useState<TestUser[]>([])
   const [apps, setApps] = useState<App[]>([])
   const [usageLogs, setUsageLogs] = useState<UsageLog[]>([])
@@ -26,21 +26,21 @@ export function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [tenantsRes, usersRes, appsRes, logsRes] = await Promise.all([
+      const [organizationsRes, usersRes, appsRes, logsRes] = await Promise.all([
         fetch("/api/admin/organizations"),
         fetch("/api/admin/users"),
         fetch("/api/admin/apps"),
         fetch("/api/admin/usage-logs"),
       ])
 
-      const [tenantsData, usersData, appsData, logsData] = await Promise.all([
-        tenantsRes.json(),
+      const [organizationsData, usersData, appsData, logsData] = await Promise.all([
+        organizationsRes.json(),
         usersRes.json(),
         appsRes.json(),
         logsRes.json(),
       ])
 
-      setTenants(tenantsData)
+      setOrganizations(organizationsData)
       setUsers(usersData)
       setApps(appsData)
       setUsageLogs(logsData)
@@ -71,7 +71,7 @@ export function AdminDashboard() {
     return <div className="text-center py-12">Loading admin dashboard...</div>
   }
 
-  const totalMembers = tenants.reduce((sum, tenant) => sum + (tenant.member_count || 0), 0)
+  const totalMembers = organizations.reduce((sum, organization) => sum + (organization.member_count || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -82,7 +82,7 @@ export function AdminDashboard() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{tenants.length}</div>
+            <div className="text-2xl font-bold">{organizations.length}</div>
             <p className="text-xs text-muted-foreground">{totalMembers} total members</p>
           </CardContent>
         </Card>
@@ -149,9 +149,9 @@ export function AdminDashboard() {
                     <div>
                       <h3 className="font-medium">{user.name}</h3>
                       <p className="text-sm text-gray-500">{user.email}</p>
-                      {user.tenant_id && (
+                      {user.organization_id && (
                         <p className="text-xs text-gray-400">
-                          Org: {tenants.find((t) => t.id === user.tenant_id)?.name || "Unknown"}
+                          Org: {organizations.find((t) => t.id === user.organization_id)?.name || "Unknown"}
                         </p>
                       )}
                     </div>

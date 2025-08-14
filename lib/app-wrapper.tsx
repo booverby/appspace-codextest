@@ -29,7 +29,7 @@ export async function AppWrapper({ appId, children }: AppWrapperProps) {
       )
     }
 
-    if (!user.tenant_id) {
+    if (!user.organization_id) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
@@ -122,14 +122,14 @@ export async function AppWrapper({ appId, children }: AppWrapperProps) {
       )
     }
 
-    console.log("Checking org app access for tenant:", user.tenant_id, "app:", app.id)
+    console.log("Checking org app access for organization:", user.organization_id, "app:", app.id)
 
     let orgApp = null
     try {
       const { data: orgAppData, error: orgAppError } = await supabaseAdmin
         .from("org_apps")
         .select("*")
-        .eq("tenant_id", user.tenant_id)
+        .eq("organization_id", user.organization_id)
         .eq("app_id", app.id)
         .eq("enabled", true)
         .single()
@@ -162,7 +162,7 @@ export async function AppWrapper({ appId, children }: AppWrapperProps) {
         const { data: orgAppsData } = await supabaseAdmin
           .from("org_apps")
           .select("*, apps(name)")
-          .eq("tenant_id", user.tenant_id)
+          .eq("organization_id", user.organization_id)
         allOrgApps = orgAppsData
       } catch (error) {
         console.error("Error fetching organization apps:", error)
@@ -187,9 +187,9 @@ export async function AppWrapper({ appId, children }: AppWrapperProps) {
     let organization = null
     try {
       const { data: orgData, error: orgError } = await supabaseAdmin
-        .from("tenants")
+        .from("organizations")
         .select("*")
-        .eq("id", user.tenant_id)
+        .eq("id", user.organization_id)
         .single()
 
       if (orgError) {
@@ -228,7 +228,7 @@ export async function AppWrapper({ appId, children }: AppWrapperProps) {
       const { data: apiKeysData, error: apiKeysError } = await supabaseAdmin
         .from("api_keys")
         .select("provider, encrypted_key")
-        .eq("tenant_id", user.tenant_id)
+        .eq("organization_id", user.organization_id)
 
       if (apiKeysError) {
         console.error("API keys lookup failed:", apiKeysError)
@@ -243,7 +243,7 @@ export async function AppWrapper({ appId, children }: AppWrapperProps) {
       // Continue with empty apiKeys rather than crashing
     }
 
-    const onUsageLog = createUsageLogger(user.id, user.tenant_id, app.id)
+    const onUsageLog = createUsageLogger(user.id, user.organization_id, app.id)
 
     const appProps: AppProps = {
       user,

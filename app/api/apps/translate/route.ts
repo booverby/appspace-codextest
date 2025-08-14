@@ -17,9 +17,9 @@ const languageNames: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
-    const { text, sourceLang, targetLang, tenantId, userId } = await request.json()
+    const { text, sourceLang, targetLang, organizationId, userId } = await request.json()
 
-    if (!text || !sourceLang || !targetLang || !tenantId || !userId) {
+    if (!text || !sourceLang || !targetLang || !organizationId || !userId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const { data: orgApp, error: orgAppError } = await supabaseAdmin
       .from("org_apps")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .eq("app_id", "550e8400-e29b-41d4-a716-446655440002") // Translate app ID
       .eq("enabled", true)
       .single()
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const { data: apiKey, error: apiKeyError } = await supabaseAdmin
       .from("api_keys")
       .select("encrypted_key")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .eq("provider", "openai")
       .single()
 
@@ -99,7 +99,7 @@ ${text}`
       try {
         await supabaseAdmin.from("usage_logs").insert({
           user_id: userId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
           app_id: "550e8400-e29b-41d4-a716-446655440002",
           action: "translation",
           metadata: {

@@ -48,7 +48,7 @@ export function PromptApp({ user }: PromptAppProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: input.trim(),
-          tenantId: user.tenant_id,
+          organizationId: user.organization_id,
           userId: user.id,
         }),
       })

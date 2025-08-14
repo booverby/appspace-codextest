@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Nordic AI platform uses a multi-tenant architecture where individual applications can be developed and deployed independently while leveraging shared system infrastructure.
+The Nordic AI platform uses a multi-organization architecture where individual applications can be developed and deployed independently while leveraging shared system infrastructure.
 
 ## App Architecture
 
