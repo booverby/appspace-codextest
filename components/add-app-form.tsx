@@ -2,8 +2,11 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +19,8 @@ import { useToast } from "@/hooks/use-toast"
 import { AlertCircle, CheckCircle, Code, FileText, Lightbulb, Zap } from "lucide-react"
 import type { AppCategory, Permission } from "@/lib/app-framework"
 import { APP_TEMPLATES, generateAppFromTemplate } from "@/lib/app-template"
+import { colors, spacing } from "@/lib/theme"
+import { cn } from "@/lib/utils"
 
 const CATEGORIES: { value: AppCategory; label: string; description: string }[] = [
   { value: "ai-ml", label: "AI & ML", description: "AI-powered applications and machine learning tools" },
@@ -34,62 +39,69 @@ const PERMISSIONS: { value: Permission; label: string; description: string }[] =
   { value: "organization-data", label: "Organization Data", description: "Access to organization information" },
 ]
 
-interface AppFormData {
-  id: string
-  name: string
-  description: string
-  icon: string
-  version: string
-  category: AppCategory | ""
-  permissions: Permission[]
-  author: string
-  homepage: string
-  repository: string
-}
+const categoryValues = CATEGORIES.map((c) => c.value) as [AppCategory, ...AppCategory[]]
+const permissionValues = PERMISSIONS.map((p) => p.value) as [Permission, ...Permission[]]
+
+const formSchema = z.object({
+  id: z
+    .string()
+    .min(1, "App ID is required")
+    .regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers, and hyphens only"),
+  name: z.string().min(1, "App name is required"),
+  description: z.string().min(1, "Description is required"),
+  icon: z.string().min(1, "Icon is required").max(2, "Use a single emoji"),
+  version: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/, "Use semantic versioning (x.y.z)"),
+  category: z.enum(categoryValues, { required_error: "Category is required" }),
+  permissions: z.array(z.enum(permissionValues)).default([]),
+  author: z.string().optional(),
+  homepage: z.string().url("Invalid URL").optional().or(z.literal("")),
+  repository: z.string().url("Invalid URL").optional().or(z.literal("")),
+})
 
 export function AddAppForm() {
-  const [formData, setFormData] = useState<AppFormData>({
-    id: "",
-    name: "",
-    description: "",
-    icon: "🚀",
-    version: "1.0.0",
-    category: "",
-    permissions: [],
-    author: "",
-    homepage: "",
-    repository: "",
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      id: "",
+      name: "",
+      description: "",
+      icon: "🚀",
+      version: "1.0.0",
+      category: undefined,
+      permissions: [],
+      author: "",
+      homepage: "",
+      repository: "",
+    },
   })
+  const { register, handleSubmit, watch, setValue, formState } = form
+  const { errors } = formState
   const [selectedTemplate, setSelectedTemplate] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
 
-  const handleInputChange = (field: keyof AppFormData, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  const watchedName = watch("name")
+  const permissions = watch("permissions")
+  const formValues = watch()
 
-    // Auto-generate ID from name
-    if (field === "name" && typeof value === "string") {
-      const id = value
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .trim()
-      setFormData((prev) => ({ ...prev, id }))
-    }
-  }
-
-  const handlePermissionChange = (permission: Permission, checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      permissions: checked ? [...prev.permissions, permission] : prev.permissions.filter((p) => p !== permission),
-    }))
-  }
+  useEffect(() => {
+    if (!watchedName) return
+    const id = watchedName
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim()
+    setValue("id", id)
+  }, [watchedName, setValue])
 
   const generateTemplate = () => {
-    if (!selectedTemplate || !formData.name || !formData.description) {
+    const { id, name, description } = form.getValues()
+    if (!selectedTemplate || !name || !description) {
       toast({
         title: "Missing Information",
         description: "Please fill in app name and description before generating template",
@@ -101,16 +113,15 @@ export function AddAppForm() {
     const template = APP_TEMPLATES.find((t) => t.id === selectedTemplate)
     if (!template) return
 
-    const files = generateAppFromTemplate(template, formData.id, formData.name, formData.description)
+    const files = generateAppFromTemplate(template, id, name, description)
 
-    // Create downloadable zip file content
     const fileContent = files.map((file) => `// File: ${file.path}\n${file.content}\n\n`).join("---\n\n")
 
     const blob = new Blob([fileContent], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${formData.id}-template.txt`
+    a.download = `${id}-template.txt`
     a.click()
     URL.revokeObjectURL(url)
 
@@ -120,23 +131,13 @@ export function AddAppForm() {
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.category) {
-      toast({
-        title: "Missing Category",
-        description: "Please select a category for your app",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true)
     try {
       const response = await fetch("/api/admin/apps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(values),
       })
 
       if (!response.ok) {
@@ -162,17 +163,17 @@ export function AddAppForm() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className={spacing.lg}>
       {/* Development Guidelines */}
-      <Card className="border-blue-200 bg-blue-50">
+      <Card className={cn(colors.info.border, colors.info.bg)}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-800">
+          <CardTitle className={cn("flex items-center", spacing.gapSm, colors.info.heading)}>
             <Lightbulb className="h-5 w-5" />
             App Development Guidelines
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-blue-700">
-          <div className="grid md:grid-cols-2 gap-4">
+        <CardContent className={cn(spacing.sm, colors.info.body)}>
+          <div className={cn("grid md:grid-cols-2", spacing.gapMd)}>
             <div>
               <h4 className="font-semibold mb-2">Requirements</h4>
               <ul className="space-y-1 text-sm">
@@ -194,7 +195,7 @@ export function AddAppForm() {
               </ul>
             </div>
           </div>
-          <div className="flex gap-2 pt-2">
+          <div className={cn("flex", spacing.gapSm, "pt-2")}>
             <Button size="sm" variant="outline" asChild>
               <a href="/docs/app-development-guide.md" target="_blank" rel="noreferrer">
                 <FileText className="h-4 w-4 mr-1" />
@@ -212,35 +213,29 @@ export function AddAppForm() {
       </Card>
 
       {/* App Registration Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className={spacing.md}>
         <Card>
           <CardHeader>
             <CardTitle>App Information</CardTitle>
             <CardDescription>Basic information about your application</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
+          <CardContent className={spacing.sm}>
+            <div className={cn("grid md:grid-cols-2", spacing.gapMd)}>
               <div>
                 <Label htmlFor="name">App Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  placeholder="My Awesome App"
-                  required
-                />
+                <Input id="name" placeholder="My Awesome App" {...register("name")}/>
+                {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
               </div>
               <div>
                 <Label htmlFor="id">App ID *</Label>
                 <Input
                   id="id"
-                  value={formData.id}
-                  onChange={(e) => handleInputChange("id", e.target.value)}
                   placeholder="my-awesome-app"
                   pattern="^[a-z0-9-]+$"
                   title="Lowercase letters, numbers, and hyphens only"
-                  required
+                  {...register("id")}
                 />
+                {errors.id && <p className="text-sm text-destructive mt-1">{errors.id.message}</p>}
                 <p className="text-xs text-muted-foreground mt-1">Auto-generated from name, or customize</p>
               </div>
             </div>
@@ -249,42 +244,37 @@ export function AddAppForm() {
               <Label htmlFor="description">Description *</Label>
               <Textarea
                 id="description"
-                value={formData.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
                 placeholder="A brief description of what your app does..."
                 rows={3}
-                required
+                {...register("description")}
               />
+              {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
             </div>
 
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className={cn("grid md:grid-cols-3", spacing.gapMd)}>
               <div>
                 <Label htmlFor="icon">Icon *</Label>
-                <Input
-                  id="icon"
-                  value={formData.icon}
-                  onChange={(e) => handleInputChange("icon", e.target.value)}
-                  placeholder="🚀"
-                  maxLength={2}
-                  required
-                />
+                <Input id="icon" placeholder="🚀" maxLength={2} {...register("icon")}/>
+                {errors.icon && <p className="text-sm text-destructive mt-1">{errors.icon.message}</p>}
                 <p className="text-xs text-muted-foreground mt-1">Single emoji</p>
               </div>
               <div>
                 <Label htmlFor="version">Version *</Label>
                 <Input
                   id="version"
-                  value={formData.version}
-                  onChange={(e) => handleInputChange("version", e.target.value)}
                   placeholder="1.0.0"
                   pattern="^\d+\.\d+\.\d+$"
                   title="Semantic versioning (x.y.z)"
-                  required
+                  {...register("version")}
                 />
+                {errors.version && <p className="text-sm text-destructive mt-1">{errors.version.message}</p>}
               </div>
               <div>
                 <Label htmlFor="category">Category *</Label>
-                <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                <Select
+                  value={formValues.category}
+                  onValueChange={(value) => setValue("category", value as AppCategory)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
@@ -299,6 +289,7 @@ export function AddAppForm() {
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
               </div>
             </div>
           </CardContent>
@@ -310,13 +301,18 @@ export function AddAppForm() {
             <CardDescription>Select the permissions your app requires</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className={spacing.xs}>
               {PERMISSIONS.map((permission) => (
-                <div key={permission.value} className="flex items-start space-x-3">
+                <div key={permission.value} className={cn("flex items-start", spacing.gapSm)}>
                   <Checkbox
                     id={permission.value}
-                    checked={formData.permissions.includes(permission.value)}
-                    onCheckedChange={(checked) => handlePermissionChange(permission.value, checked as boolean)}
+                    checked={permissions.includes(permission.value)}
+                    onCheckedChange={(checked) => {
+                      const updated = checked
+                        ? [...permissions, permission.value]
+                        : permissions.filter((p) => p !== permission.value)
+                      setValue("permissions", updated)
+                    }}
                   />
                   <div className="space-y-1">
                     <Label htmlFor={permission.value} className="font-medium">
@@ -335,53 +331,48 @@ export function AddAppForm() {
             <CardTitle>Additional Information</CardTitle>
             <CardDescription>Optional metadata about your app</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className={spacing.sm}>
             <div>
               <Label htmlFor="author">Author</Label>
-              <Input
-                id="author"
-                value={formData.author}
-                onChange={(e) => handleInputChange("author", e.target.value)}
-                placeholder="Your name or organization"
-              />
+              <Input id="author" placeholder="Your name or organization" {...register("author")}/>
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className={cn("grid md:grid-cols-2", spacing.gapMd)}>
               <div>
                 <Label htmlFor="homepage">Homepage URL</Label>
                 <Input
                   id="homepage"
                   type="url"
-                  value={formData.homepage}
-                  onChange={(e) => handleInputChange("homepage", e.target.value)}
                   placeholder="https://example.com"
+                  {...register("homepage")}
                 />
+                {errors.homepage && <p className="text-sm text-destructive mt-1">{errors.homepage.message}</p>}
               </div>
               <div>
                 <Label htmlFor="repository">Repository URL</Label>
                 <Input
                   id="repository"
                   type="url"
-                  value={formData.repository}
-                  onChange={(e) => handleInputChange("repository", e.target.value)}
                   placeholder="https://github.com/user/repo"
+                  {...register("repository")}
                 />
+                {errors.repository && <p className="text-sm text-destructive mt-1">{errors.repository.message}</p>}
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Template Generator */}
-        <Card className="border-green-200 bg-green-50">
+        <Card className={cn(colors.success.border, colors.success.bg)}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800">
+            <CardTitle className={cn("flex items-center", spacing.gapSm, colors.success.heading)}>
               <Zap className="h-5 w-5" />
               Quick Start Template
             </CardTitle>
-            <CardDescription className="text-green-700">
+            <CardDescription className={colors.success.body}>
               Generate boilerplate code to get started quickly
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className={spacing.sm}>
             <div>
               <Label htmlFor="template">Choose Template</Label>
               <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
@@ -420,13 +411,13 @@ export function AddAppForm() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3 p-4 border rounded-lg">
-                <div className="text-2xl">{formData.icon}</div>
+                <div className="text-2xl">{formValues.icon}</div>
                 <div>
-                  <h3 className="font-semibold">{formData.name || "App Name"}</h3>
-                  <p className="text-sm text-muted-foreground">{formData.description || "App description"}</p>
-                  <div className="flex gap-2 mt-2">
-                    {formData.category && <Badge variant="secondary">{formData.category}</Badge>}
-                    <Badge variant="outline">v{formData.version}</Badge>
+                  <h3 className="font-semibold">{formValues.name || "App Name"}</h3>
+                  <p className="text-sm text-muted-foreground">{formValues.description || "App description"}</p>
+                  <div className={cn("flex", spacing.gapSm, "mt-2")}>
+                    {formValues.category && <Badge variant="secondary">{formValues.category}</Badge>}
+                    <Badge variant="outline">v{formValues.version}</Badge>
                   </div>
                 </div>
               </div>
@@ -435,7 +426,7 @@ export function AddAppForm() {
         )}
 
         {/* Submit */}
-        <div className="flex gap-4">
+        <div className={cn("flex", spacing.gapMd)}>
           <Button type="submit" disabled={loading} className="flex-1">
             {loading ? "Registering..." : "Register App"}
           </Button>
@@ -446,28 +437,28 @@ export function AddAppForm() {
       </form>
 
       {/* Process Information */}
-      <Card className="border-amber-200 bg-amber-50">
+      <Card className={cn(colors.warning.border, colors.warning.bg)}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-amber-800">
+          <CardTitle className={cn("flex items-center", spacing.gapSm, colors.warning.heading)}>
             <AlertCircle className="h-5 w-5" />
             What Happens Next?
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-amber-700">
-          <ol className="space-y-2 text-sm">
-            <li className="flex items-center gap-2">
+        <CardContent className={colors.warning.body}>
+          <ol className={cn(spacing.xs, "text-sm")}>
+            <li className={cn("flex items-center", spacing.gapSm)}>
               <CheckCircle className="h-4 w-4 text-amber-600" />
               Your app will be submitted for review
             </li>
-            <li className="flex items-center gap-2">
+            <li className={cn("flex items-center", spacing.gapSm)}>
               <CheckCircle className="h-4 w-4 text-amber-600" />
               Our team will evaluate it against our guidelines
             </li>
-            <li className="flex items-center gap-2">
+            <li className={cn("flex items-center", spacing.gapSm)}>
               <CheckCircle className="h-4 w-4 text-amber-600" />
               You'll receive approval or feedback for improvements
             </li>
-            <li className="flex items-center gap-2">
+            <li className={cn("flex items-center", spacing.gapSm)}>
               <CheckCircle className="h-4 w-4 text-amber-600" />
               Once approved, your app will be available to organizations
             </li>
