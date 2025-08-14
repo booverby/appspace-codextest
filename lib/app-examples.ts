@@ -101,15 +101,15 @@ export const CODE_GENERATORS = {
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Tenant } from '@/lib/types';
+import { User, Organization } from '@/lib/types';
 
 interface ${toPascalCase(appName)}Props {
   user: User;
-  tenant: Tenant;
+  organization: Organization;
   onUsageLog: (action: string, details?: any) => void;
 }
 
-export function ${toPascalCase(appName)}({ user, tenant, onUsageLog }: ${toPascalCase(appName)}Props) {
+export function ${toPascalCase(appName)}({ user, organization, onUsageLog }: ${toPascalCase(appName)}Props) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
 
@@ -164,14 +164,14 @@ import { validateAppAccess } from '@/lib/app-framework';
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, tenant } = await validateAppAccess(request, '${appName}', ['${appName}:read']);
+    const { user, organization } = await validateAppAccess(request, '${appName}', ['${appName}:read']);
     const supabase = createClient();
     
     // Fetch your data here
     const { data, error } = await supabase
       .from('${appName}_data')
       .select('*')
-      .eq('tenant_id', tenant.id)
+      .eq('organization_id', organization.id)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user, tenant } = await validateAppAccess(request, '${appName}', ['${appName}:write']);
+    const { user, organization } = await validateAppAccess(request, '${appName}', ['${appName}:write']);
     const body = await request.json();
     const supabase = createClient();
     
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
       .from('${appName}_data')
       .insert({
         ...body,
-        tenant_id: tenant.id,
+        organization_id: organization.id,
         created_by: user.id,
         created_at: new Date().toISOString()
       })
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
     
     // Log usage
-    await logAppUsage(user.id, tenant.id, '${appName}', 'create', { itemId: data.id });
+    await logAppUsage(user.id, organization.id, '${appName}', 'create', { itemId: data.id });
     
     return NextResponse.json({ data });
   } catch (error) {
@@ -238,10 +238,10 @@ export default function ${toPascalCase(appName)}Page() {
       appId="${appName}"
       requiredPermissions={['${appName}:read']}
     >
-      {({ user, tenant, onUsageLog }) => (
+      {({ user, organization, onUsageLog }) => (
         <${toPascalCase(appName)}
           user={user}
-          tenant={tenant}
+          organization={organization}
           onUsageLog={onUsageLog}
         />
       )}
@@ -259,7 +259,7 @@ export const metadata = {
 -- Database schema for ${appName} app
 CREATE TABLE IF NOT EXISTS ${appName}_data (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   created_by UUID NOT NULL REFERENCES test_users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS ${appName}_data (
 );
 
 -- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_${appName}_data_tenant_id ON ${appName}_data(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_${appName}_data_organization_id ON ${appName}_data(organization_id);
 CREATE INDEX IF NOT EXISTS idx_${appName}_data_created_by ON ${appName}_data(created_by);
 CREATE INDEX IF NOT EXISTS idx_${appName}_data_status ON ${appName}_data(status);
 
@@ -278,9 +278,9 @@ CREATE INDEX IF NOT EXISTS idx_${appName}_data_status ON ${appName}_data(status)
 ALTER TABLE ${appName}_data ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
-CREATE POLICY "${appName}_tenant_isolation" ON ${appName}_data
-  FOR ALL USING (tenant_id IN (
-    SELECT tenant_id FROM test_users WHERE id = auth.uid()
+CREATE POLICY "${appName}_organization_isolation" ON ${appName}_data
+  FOR ALL USING (organization_id IN (
+    SELECT organization_id FROM test_users WHERE id = auth.uid()
   ));
 
 -- Create updated_at trigger

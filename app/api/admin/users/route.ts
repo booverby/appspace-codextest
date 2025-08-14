@@ -7,7 +7,7 @@ export async function GET() {
       .from("test_users")
       .select(`
         *,
-        tenant:tenants(name)
+        organization:organizations(name)
       `)
       .order("name")
 
@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { email, password, name, role, tenant_id } = await request.json()
+    const { email, password, name, role, organization_id } = await request.json()
 
     if (!email || !password || !name || !role) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const { data: user, error } = await supabaseAdmin
       .from("test_users")
-      .insert({ email, password, name, role, tenant_id })
+      .insert({ email, password, name, role, organization_id })
       .select()
       .single()
 

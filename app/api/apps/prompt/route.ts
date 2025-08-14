@@ -4,12 +4,12 @@ import { decrypt } from "@/lib/crypto"
 
 export async function POST(request: Request) {
   try {
-    const { message, tenantId, userId } = await request.json()
+    const { message, organizationId, userId } = await request.json()
 
-    console.log("Prompt API called with:", { message: message?.substring(0, 50), tenantId, userId })
+    console.log("Prompt API called with:", { message: message?.substring(0, 50), organizationId, userId })
 
-    if (!message || !tenantId || !userId) {
-      console.log("Missing required fields:", { message: !!message, tenantId: !!tenantId, userId: !!userId })
+    if (!message || !organizationId || !userId) {
+      console.log("Missing required fields:", { message: !!message, organizationId: !!organizationId, userId: !!userId })
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -22,12 +22,12 @@ export async function POST(request: Request) {
     const { data: orgApp, error: orgAppError } = await supabaseAdmin
       .from("org_apps")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .eq("app_id", "550e8400-e29b-41d4-a716-446655440001") // Prompt app ID
       .eq("enabled", true)
       .single()
 
-    console.log("Org app check:", { orgApp, orgAppError, tenantId })
+    console.log("Org app check:", { orgApp, orgAppError, organizationId })
 
     if (orgAppError) {
       console.error("Database error checking org_apps:", orgAppError)
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     if (!orgApp) {
-      console.log("App not enabled for organization:", tenantId)
+      console.log("App not enabled for organization:", organizationId)
       return NextResponse.json({ error: "App not enabled for your organization" }, { status: 403 })
     }
 
@@ -43,11 +43,11 @@ export async function POST(request: Request) {
     const { data: apiKey, error: apiKeyError } = await supabaseAdmin
       .from("api_keys")
       .select("encrypted_key")
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .eq("provider", "openai")
       .single()
 
-    console.log("API key check:", { hasApiKey: !!apiKey, apiKeyError, tenantId })
+    console.log("API key check:", { hasApiKey: !!apiKey, apiKeyError, organizationId })
 
     if (apiKeyError) {
       console.error("Database error fetching API key:", apiKeyError)
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     }
 
     if (!apiKey) {
-      console.log("No OpenAI API key found for tenant:", tenantId)
+      console.log("No OpenAI API key found for organization:", organizationId)
       return NextResponse.json({ error: "No OpenAI API key configured for your organization" }, { status: 400 })
     }
 
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       try {
         await supabaseAdmin.from("usage_logs").insert({
           user_id: userId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
           app_id: "550e8400-e29b-41d4-a716-446655440001",
           action: "prompt_completion",
           metadata: {

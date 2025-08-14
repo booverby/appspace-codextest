@@ -77,7 +77,7 @@ Every app must implement these core interfaces:
 \`\`\`typescript
 interface AppComponent {
   user: User;
-  tenant: Tenant;
+  organization: Organization;
   onUsageLog: (action: string, details?: any) => void;
 }
 
@@ -116,15 +116,15 @@ interface AppMetadata {
 \`\`\`typescript
 // components/apps/my-app/my-app.tsx
 import { AppWrapper } from '@/lib/app-wrapper';
-import { User, Tenant } from '@/lib/types';
+import { User, Organization } from '@/lib/types';
 
 interface MyAppProps {
   user: User;
-  tenant: Tenant;
+  organization: Organization;
   onUsageLog: (action: string, details?: any) => void;
 }
 
-export function MyApp({ user, tenant, onUsageLog }: MyAppProps) {
+export function MyApp({ user, organization, onUsageLog }: MyAppProps) {
   // App implementation here
   
   const handleAction = async () => {
@@ -162,10 +162,10 @@ export default function MyAppPage() {
       appId="my-app"
       requiredPermissions={['my-app:read']}
     >
-      {({ user, tenant, onUsageLog }) => (
+      {({ user, organization, onUsageLog }) => (
         <MyApp 
           user={user} 
-          tenant={tenant} 
+          organization={organization} 
           onUsageLog={onUsageLog} 
         />
       )}
@@ -184,14 +184,14 @@ import { validateAppAccess } from '@/lib/app-framework';
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, tenant } = await validateAppAccess(request, 'my-app', ['my-app:read']);
+    const { user, organization } = await validateAppAccess(request, 'my-app', ['my-app:read']);
     const supabase = createClient();
     
     // Fetch data
     const { data, error } = await supabase
       .from('my_app_data')
       .select('*')
-      .eq('tenant_id', tenant.id);
+      .eq('organization_id', organization.id);
     
     if (error) throw error;
     
@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user, tenant } = await validateAppAccess(request, 'my-app', ['my-app:write']);
+    const { user, organization } = await validateAppAccess(request, 'my-app', ['my-app:write']);
     const body = await request.json();
     const supabase = createClient();
     
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
       .from('my_app_data')
       .insert({
         ...body,
-        tenant_id: tenant.id,
+        organization_id: organization.id,
         created_by: user.id,
         created_at: new Date().toISOString()
       })
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
     
     // Log usage
-    await logAppUsage(user.id, tenant.id, 'my-app', 'create', { itemId: data.id });
+    await logAppUsage(user.id, organization.id, 'my-app', 'create', { itemId: data.id });
     
     return NextResponse.json({ data });
   } catch (error) {
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
 -- scripts/apps/my-app-schema.sql
 CREATE TABLE IF NOT EXISTS my_app_data (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   created_by UUID NOT NULL REFERENCES test_users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
@@ -261,16 +261,16 @@ CREATE TABLE IF NOT EXISTS my_app_data (
 );
 
 -- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_my_app_data_tenant_id ON my_app_data(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_my_app_data_organization_id ON my_app_data(organization_id);
 CREATE INDEX IF NOT EXISTS idx_my_app_data_created_by ON my_app_data(created_by);
 
 -- Enable RLS (Row Level Security)
 ALTER TABLE my_app_data ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
-CREATE POLICY "Users can only access their tenant's data" ON my_app_data
-  FOR ALL USING (tenant_id IN (
-    SELECT tenant_id FROM test_users WHERE id = auth.uid()
+CREATE POLICY "Users can only access their organization's data" ON my_app_data
+  FOR ALL USING (organization_id IN (
+    SELECT organization_id FROM test_users WHERE id = auth.uid()
   ));
 \`\`\`
 
@@ -315,7 +315,7 @@ import { MyApp } from '@/components/apps/my-app/my-app';
 
 const mockProps = {
   user: { id: '1', name: 'Test User', email: 'test@example.com' },
-  tenant: { id: '1', name: 'Test Org' },
+  organization: { id: '1', name: 'Test Org' },
   onUsageLog: jest.fn()
 };
 
@@ -441,7 +441,7 @@ interface DataItem {
   created_at: string;
 }
 
-export function DataManager({ user, tenant, onUsageLog }) {
+export function DataManager({ user, organization, onUsageLog }) {
   const [items, setItems] = useState<DataItem[]>([]);
   const [newItem, setNewItem] = useState({ name: '', description: '' });
   const [loading, setLoading] = useState(false);
@@ -548,7 +548,7 @@ interface WeatherData {
   humidity: number;
 }
 
-export function WeatherApp({ user, tenant, onUsageLog }) {
+export function WeatherApp({ user, organization, onUsageLog }) {
   const [location, setLocation] = useState('');
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);

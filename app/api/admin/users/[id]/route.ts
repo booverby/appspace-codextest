@@ -3,10 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase/server"
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const { email, password, name, role, tenant_id } = await request.json()
+    const { email, password, name, role, organization_id } = await request.json()
     const { id } = params
 
-    const updateData: any = { email, name, role, tenant_id }
+    const updateData: any = { email, name, role, organization_id }
     if (password) {
       updateData.password = password
     }

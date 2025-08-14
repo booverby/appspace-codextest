@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit } from "lucide-react"
-import type { TestUser, Tenant } from "@/lib/types"
+import type { TestUser, Organization } from "@/lib/types"
 
 interface UserManagementDialogProps {
   user?: TestUser
@@ -27,28 +27,28 @@ interface UserManagementDialogProps {
 export function UserManagementDialog({ user, onUserSaved }: UserManagementDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [organizations, setOrganizations] = useState<Organization[]>([])
   const [formData, setFormData] = useState({
     email: user?.email || "",
     password: "",
     name: user?.name || "",
     role: user?.role || "member",
-    tenant_id: user?.tenant_id || "",
+    organization_id: user?.organization_id || "",
   })
 
   useEffect(() => {
     if (open) {
-      fetchTenants()
+      fetchOrganizations()
     }
   }, [open])
 
-  const fetchTenants = async () => {
+  const fetchOrganizations = async () => {
     try {
-      const response = await fetch("/api/admin/tenants")
+      const response = await fetch("/api/admin/organizations")
       const data = await response.json()
-      setTenants(data)
+      setOrganizations(data)
     } catch (error) {
-      console.error("Failed to fetch tenants:", error)
+      console.error("Failed to fetch organizations:", error)
     }
   }
 
@@ -65,7 +65,7 @@ export function UserManagementDialog({ user, onUserSaved }: UserManagementDialog
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          tenant_id: formData.role === "super_admin" ? null : formData.tenant_id,
+          organization_id: formData.role === "super_admin" ? null : formData.organization_id,
         }),
       })
 
@@ -81,7 +81,7 @@ export function UserManagementDialog({ user, onUserSaved }: UserManagementDialog
           password: "",
           name: "",
           role: "member",
-          tenant_id: "",
+          organization_id: "",
         })
       }
     } catch (error) {
@@ -154,18 +154,18 @@ export function UserManagementDialog({ user, onUserSaved }: UserManagementDialog
 
           {formData.role === "member" && (
             <div className="space-y-2">
-              <Label htmlFor="tenant">Organization</Label>
+              <Label htmlFor="organization">Organization</Label>
               <Select
-                value={formData.tenant_id}
-                onValueChange={(value) => setFormData({ ...formData, tenant_id: value })}
+                value={formData.organization_id}
+                onValueChange={(value) => setFormData({ ...formData, organization_id: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select organization" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
-                      {tenant.name}
+                  {organizations.map((organization) => (
+                    <SelectItem key={organization.id} value={organization.id}>
+                      {organization.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

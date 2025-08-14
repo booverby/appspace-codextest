@@ -1,8 +1,11 @@
-export interface Tenant {
+export interface Organization {
   id: string
   name: string
   created_at: string
   updated_at: string
+  description?: string
+  member_count?: number
+  members?: TestUser[]
 }
 
 export interface App {
@@ -16,7 +19,7 @@ export interface App {
 
 export interface OrgApp {
   id: string
-  tenant_id: string
+  organization_id: string
   app_id: string
   enabled: boolean
   created_at: string
@@ -24,7 +27,7 @@ export interface OrgApp {
 
 export interface ApiKey {
   id: string
-  tenant_id: string
+  organization_id: string
   provider: string
   encrypted_key: string
   created_at: string
@@ -37,7 +40,7 @@ export interface TestUser {
   password: string
   name: string
   role: "super_admin" | "member"
-  tenant_id: string | null
+  organization_id: string | null
   created_at: string
   updated_at: string
 }
@@ -47,17 +50,11 @@ export type User = TestUser
 export interface UsageLog {
   id: string
   user_id: string
-  tenant_id: string
+  organization_id: string
   app_id: string
   action: string
   metadata: any
   created_at: string
-}
-
-export interface Organization extends Tenant {
-  description?: string
-  member_count: number
-  members?: TestUser[]
 }
 
 export interface OrganizationMember {

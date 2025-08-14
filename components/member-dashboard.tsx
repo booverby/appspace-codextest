@@ -17,13 +17,13 @@ export function MemberDashboard({ user }: MemberDashboardProps) {
 
   useEffect(() => {
     fetchEnabledApps()
-  }, [user.tenant_id])
+  }, [user.organization_id])
 
   const fetchEnabledApps = async () => {
-    if (!user.tenant_id) return
+    if (!user.organization_id) return
 
     try {
-      const response = await fetch(`/api/member/apps?tenantId=${user.tenant_id}`)
+      const response = await fetch(`/api/member/apps?organizationId=${user.organization_id}`)
       const data = await response.json()
       setEnabledApps(data.apps || [])
       setHasApiKey(data.hasApiKey || false)

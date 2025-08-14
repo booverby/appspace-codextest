@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const { data: members, error } = await supabaseAdmin
       .from("test_users")
       .select("*")
-      .eq("tenant_id", id)
+      .eq("organization_id", id)
       .order("name")
 
     if (error) throw error
@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // Update users to belong to this organization
     const { data: updatedUsers, error } = await supabaseAdmin
       .from("test_users")
-      .update({ tenant_id: id })
+      .update({ organization_id: id })
       .in("id", user_ids)
       .select()
 

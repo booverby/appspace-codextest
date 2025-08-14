@@ -8,7 +8,7 @@ export async function GET() {
       .select(`
         *,
         user:test_users(name, email),
-        tenant:tenants(name),
+        organization:organizations(name),
         app:apps(name, icon)
       `)
       .order("created_at", { ascending: false })

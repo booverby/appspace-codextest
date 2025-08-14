@@ -64,7 +64,7 @@ export function OrganizationMembersDialog({ organizationId, organizationName }: 
       // Filter out users who are already members and super admins
       const memberIds = new Set(membersData.map((m: TestUser) => m.id))
       const available = usersData.filter(
-        (user: TestUser) => !memberIds.has(user.id) && user.role !== "super_admin" && !user.tenant_id,
+        (user: TestUser) => !memberIds.has(user.id) && user.role !== "super_admin" && !user.organization_id,
       )
       setAvailableUsers(available)
     } catch (error) {

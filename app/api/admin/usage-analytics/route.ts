@@ -25,8 +25,8 @@ export async function GET(request: Request) {
     const { data: orgUsage, error: orgError } = await supabaseAdmin
       .from("usage_logs")
       .select(`
-        tenant_id,
-        tenant:tenants(name),
+        organization_id,
+        organization:organizations(name),
         created_at
       `)
       .gte("created_at", startDate.toISOString())
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // Process org usage
     const orgStats =
       orgUsage?.reduce((acc: any, log) => {
-        const orgName = log.tenant?.name || "Unknown"
+        const orgName = log.organization?.name || "Unknown"
         acc[orgName] = (acc[orgName] || 0) + 1
         return acc
       }, {}) || {}
